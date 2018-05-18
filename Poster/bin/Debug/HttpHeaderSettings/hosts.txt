@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<ArrayOfHostEntity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <HostEntity>
+    <Name>DEV</Name>
+    <HostUrl>https://apps-apis.dev.accela.com</HostUrl>
+  </HostEntity>
+  <HostEntity>
+    <Name>STAGE</Name>
+    <HostUrl>https://apis.dev.accela.com</HostUrl>
+  </HostEntity>
+  <HostEntity>
+    <Name>PROD</Name>
+    <HostUrl>https://apis.accela.com</HostUrl>
+  </HostEntity>
+  <HostEntity>
+    <Name>Locahost-API</Name>
+    <HostUrl>http://localhost:5547</HostUrl>
+  </HostEntity>
+  <HostEntity>
+    <Name>Original</Name>
+    <HostUrl />
+  </HostEntity>
+</ArrayOfHostEntity>
