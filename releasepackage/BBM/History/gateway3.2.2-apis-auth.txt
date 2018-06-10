@@ -1,0 +1,15 @@
+----------RequestURL----------
+RequestURL=http://192.168.0.94/gateway/apis/auth
+----------RequestURL----------
+----------RequestHeader----------
+RequestHeader=Accept:application/octet-stream
+AccessKey:5C0D77C8E1C64827B68668196688E4B0
+----------RequestHeader----------
+----------RequestBody----------
+RequestBody={
+	"serviceProviderCode":"QA",
+	"userId":"admin",
+	"password":"admin",
+	"userType": "agency"
+}
+----------RequestBody----------

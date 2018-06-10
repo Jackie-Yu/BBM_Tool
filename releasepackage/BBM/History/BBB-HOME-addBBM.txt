@@ -1,0 +1,13 @@
+----------RequestURL----------
+RequestURL=https://wallet.bbb-home.com/app/game/addUserBBM
+----------RequestURL----------
+----------RequestHeader----------
+RequestHeader=Accept: application/json, text/plain, */*
+Authorization: GoldBee eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxNTk2OTUiLCJleHAiOjE1MjYwMTg2NDh9.eSm_-Rj6HRy-dJKgJ91l5tpmHI_qLHW4wbPZFO_liarzNCIsZJMzoF8bJjtXKBKJJs0BOtNWr4BX7Q-QUoFP3g
+Content-Type: application/x-www-form-urlencoded
+Accept-Encoding: gzip, deflate, br
+Accept-Language: en-US,en;q=0.8
+----------RequestHeader----------
+----------RequestBody----------
+RequestBody=bbmNum=440
+----------RequestBody----------

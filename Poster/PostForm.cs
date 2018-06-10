@@ -1391,8 +1391,9 @@ Accept-Language: en-US,en;q=0.8";
                 ServicePointManager.ServerCertificateValidationCallback = delegate(Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors) { return (true); };
                 HttpClient client = new HttpClient();
                 HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, requestUrl);
-                requestMessage.Headers.Add("Authorization", token);
-                //requestMessage.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
+                if(!string.IsNullOrWhiteSpace(token))
+                    requestMessage.Headers.Add("Authorization", token);
+                requestMessage.Headers.Add("Accept-Encoding", "br, gzip, deflate");
 
                 requestMessage.Content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
 
@@ -1662,7 +1663,7 @@ Accept-Language: en-US,en;q=0.8";
             }
         }
 
-        private async Task<string> SendRequestM(HttpMethod method, string requestUrl, string requestBody)
+        private async Task<string> SendRequestM(HttpMethod method, string requestUrl, string requestBody, string authorization = null, string contenttype=null)
         {
             string responseString = null;
 
@@ -1672,8 +1673,10 @@ Accept-Language: en-US,en;q=0.8";
                 ServicePointManager.ServerCertificateValidationCallback = delegate(Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors) { return (true); };
                 HttpClient client = new HttpClient();
                 HttpRequestMessage requestMessage = new HttpRequestMessage(method, requestUrl);
-                //requestMessage.Headers.Add("Authorization", token);
-                //requestMessage.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
+                if(authorization != null)
+                    requestMessage.Headers.Add("Authorization", authorization);
+                if (!String.IsNullOrWhiteSpace(contenttype))
+                    requestMessage.Headers.Add("Content-Type", contenttype);
 
                 if(method!=HttpMethod.Get)
                     requestMessage.Content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
@@ -1719,6 +1722,78 @@ Accept-Language: en-US,en;q=0.8";
             return responseString;
         }
 
+        private async Task<string> SendRequestMultiForm(string requestUrl, string requestBody, string boundary)
+        {
+            string responseString = null;
+
+            Log.WriteLog("\r\n request url: " + requestUrl + " \r\n RequestBody:" + requestBody + "\r\n");
+            try
+            {
+                ServicePointManager.ServerCertificateValidationCallback = delegate(Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors) { return (true); };
+                HttpClient client = new HttpClient();
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, requestUrl);
+
+            //    using (var content =
+            //new MultipartFormDataContent(boundary)
+            //    {
+            //        content.Add(new StreamContent(new MemoryStream(image)), "bilddatei", "upload.jpg");
+
+            //        using (
+            //           var message =
+            //               await client.PostAsync("http://www.directupload.net/index.php?mode=upload", content))
+            //        {
+            //            var input = await message.Content.ReadAsStringAsync();
+
+            //            return !string.IsNullOrWhiteSpace(input) ? Regex.Match(input, @"http://\w*\.directupload\.net/images/\d*/\w*\.[a-z]{3}").Value : null;
+            //        }
+            //    }
+
+                //requestMessage.Content = new StringContent(requestBody, Encoding.UTF8, "multipart/form-data; boundary=" + boundary);
+                //requestMessage.Content = new MultipartFormDataContent(boundary);
+                var multipartContent = new MultipartFormDataContent(boundary);
+                multipartContent.Add(new StringContent(requestBody, Encoding.UTF8));
+                requestMessage.Content = multipartContent;
+
+                var task = client.SendAsync(requestMessage);
+
+                await task.ContinueWith((requestTask) =>
+                {
+                    // Get HTTP response from completed task.
+                    if (requestTask.IsCompleted && requestTask.Status == TaskStatus.RanToCompletion)
+                    {
+                        //    HttpResponseMessage response = requestTask.Result;
+                        var header = requestTask.Result.Content.Headers.ToString();
+                        this.txtResponseHeader.Text = ((int)requestTask.Result.StatusCode) + "-" + requestTask.Result.StatusCode.ToString() + "\r\n" + header + requestTask.Result.Headers.ToString();
+                        //response.Content.Headers.ContentType
+                        var resultStream = requestTask.Result.Content.ReadAsStreamAsync().Result;
+                        if (requestTask.Result.Content.Headers.ContentEncoding.Count > 0)
+                        {
+                            var contentEncoding = requestTask.Result.Content.Headers.ContentEncoding.First();
+                            resultStream = Decompress(resultStream, contentEncoding);
+                            resultStream.Position = 0;
+                            StreamReader reader = new StreamReader(resultStream);
+                            responseString = reader.ReadToEnd();
+                            resultStream.Close();
+                            reader.Close();
+                        }
+                        else
+                        {
+                            responseString = requestTask.Result.Content.ReadAsStringAsync().Result;
+                        }
+                    }
+
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.WriteLog(ex.ToString());
+            }
+
+            Log.WriteLog("\r\nresponse: " + responseString + "\r\n=============================\r\n");
+
+            return responseString;
+        }
+
         private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
 
@@ -1728,6 +1803,283 @@ Accept-Language: en-US,en;q=0.8";
         {
             Log.WriteLog(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss fff") + "timer starts \r\n");
             btnBBB_AddBrick_Click(null,null);
+        }
+
+        private async void btnTransfer_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string requestUrl = null;
+                string requestBody = null;
+                int index = 0;
+                 foreach (var account in BBMAccounts.Accounts)
+                 {
+                     index++;
+
+                     System.Threading.Thread.Sleep(2000);
+                     // 1. get token
+                     var token = await GetBBBHomeToken(account.UserName, account.Password);
+                     if(string.IsNullOrWhiteSpace(token))
+                     {
+                         Log.WriteLog("\r\nError======= token is null for " + account.UserName + "======\r\n");
+                         continue;
+                     }
+                     /*
+                        2. get unreleased assets
+                        post https://wallet.bbb-home.com/app/trading/getUnreleasedAssets
+                        header:
+                        Host: wallet.bbb-home.com
+                        Accept: application/json
+                        Authorization: GoldBee eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxNzgxIiwiZXhwIjoxNTI3OTQzNTA1fQ.HEILS5V_0QEetvHj-NNVjn2ak3ToCiJN_roZ0NwbPo5MOLo5FKqN3b62qUVVDaozKdGyukIpekq-DijyHvM1_Q
+                        app_version: 1.1.3
+                        X-Requested-With: XMLHttpRequest
+                        Accept-Language: zh-cn
+                        device_type: 1
+                        Accept-Encoding: br, gzip, deflate
+                        Content-Type: application/x-www-form-urlencoded
+
+
+                        request body:
+                        start=0&offset=10&isNext=1
+
+                        Response:
+                        {"msg":"成功","data":{"item":[{"wsf":1388470.485154,"bid":9}],"isNext":0},"retcode":0}
+
+                      */
+                     requestUrl ="https://wallet.bbb-home.com/app/trading/getUnreleasedAssets";
+                     requestBody = "start=0&offset=10&isNext=1";
+                     string response = await SendRequestToBBM(token, requestUrl, requestBody);
+
+                     JObject obj = JObject.Parse(response);
+                     string assetTotal = Convert.ToString(obj["data"]["item"][0]["wsf"]);
+
+                     if (assetTotal == "0")
+                         continue;
+                     // 3. transfer to 138 account
+                     /*
+                        Accept: application/json
+                        Authorization: GoldBee eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIzMDYyMTgiLCJleHAiOjE1MjgxMjY3MDl9.w1tphX9J-frM7tbTK50v5qhhOI4uX0YX2wl1HtYTLIOWePjtGqOtm1avjYy-hEFLnCnFwPhDADI9Hp5hRNfuHQ
+                        Accept-Encoding: br, gzip, deflate
+                        Content-Type: application/x-www-form-urlencoded
+                        Host: wallet.bbb-home.com
+                      
+                        body:
+                        zuserId=156510&phone=13828855569&amount=15&password=111111&remark=&balanceId=9
+                       response:
+                        {
+	                        "msg": "成功",
+	                        "data": {},
+	                        "retcode": 0
+                        }
+                      */
+                     requestUrl = "https://wallet.bbb-home.com/app/balance/uddRollOut";
+
+                     string tradePassword = "111111";
+                     if(account.Password == "111111")
+                     {
+                         tradePassword = "222222";
+                     }
+                     requestBody = String.Format("zuserId=156510&phone=13828855569&amount={0}&password={1}&remark=&balanceId=9", assetTotal, tradePassword);
+                     response = await SendRequestToBBM(token, requestUrl, requestBody);
+
+
+                     obj = JObject.Parse(response);
+                     string retcode = Convert.ToString(obj["retcode"]);
+                     if(retcode != "0")
+                     {
+                         Log.WriteLog("Error: transfer failed :" + account.UserName + " \r\n");
+                     }
+
+                 }
+            }
+            catch(Exception ex)
+            {
+                Log.WriteLog(ex.ToString());
+            }
+        }
+
+        private async void btnNetease_Click(object sender, EventArgs e)
+        {
+            await GetNeteaseVirCoins();
+        }
+
+        private async Task<string> GetNeteaseVirCoins()
+        {
+            string sessionid = null;
+
+            try
+            {
+                ServicePointManager.ServerCertificateValidationCallback = delegate(Object obj, X509Certificate certificate, X509Chain chain, SslPolicyErrors errors) { return (true); };
+
+                string requestUrl = "https://star.8.163.com/api/home/index";
+                var requestBody = "";
+                string responseBody = "";
+                //Cookie: NTES_YD_SESS=X7Z1aGKKxcUnvUrrgSqi.xRys7NR0Kr7JkYLiDGX5L8OAZ_WA7Kw6g7wQmo44jEz3e5CADylvrDuE8qCjZmB9Q04uYRVVr_7t4vASOGDxG9ryTwf6FQI4N1m57EkM_hZQW0ByTRRoiKQNpS50dM0yFn9.8e1bikRWeJnbYlYYZ1uFZnuNaMd0zE1PG5iQsh0IJJv0ici1paDQ3xOTUvJP5F7Of2WVCP_ULti09xeFp4V3; 
+                // mp_MA-9E66-C87EFACB60BC_hubble=%7B%22sessionReferrer%22%3A%20%22https%3A%2F%2Fstar.8.163.com%2Fm%22%2C%22updatedTime%22%3A%201527868040006%2C%22sessionStartTime%22%3A%201527866967972%2C%22deviceUdid%22%3A%20%22f124f62b-3499-4cc1-b542-1f99567f2806%22%2C%22persistedTime%22%3A%201527858323703%2C%22LASTEVENT%22%3A%20%7B%22eventId%22%3A%20%22da_u_login%22%2C%22time%22%3A%201527868040007%7D%2C%22sessionUuid%22%3A%20%2286c12ada-b60b-4b07-b08f-dab9723b0257%22%2C%22user_id%22%3A%202043357%7D; 
+                //_ga=GA1.2.1416979330.1527858324; 
+                //_gat=1; 
+                //NTES_YD_SESS=X7Z1aGKKxcUnvUrrgSqi.xRys7NR0Kr7JkYLiDGX5L8OAZ_WA7Kw6g7wQmo44jEz3e5CADylvrDuE8qCjZmB9Q04uYRVVr_7t4vASOGDxG9ryTwf6FQI4N1m57EkM_hZQW0ByTRRoiKQNpS50dM0yFn9.8e1bikRWeJnbYlYYZ1uFZnuNaMd0zE1PG5iQsh0IJJv0ici1paDQ3xOTUvJP5F7Of2WVCP_ULti09xeFp4V3; 
+                //STAREIG=c87fd834cabbc3a981ab93848f5d4eb5ac61360d
+
+                CookieContainer cookies = new CookieContainer();
+                var ck = new Cookie("NTES_YD_SESS", "X7Z1aGKKxcUnvUrrgSqi.xRys7NR0Kr7JkYLiDGX5L8OAZ_WA7Kw6g7wQmo44jEz3e5CADylvrDuE8qCjZmB9Q04uYRVVr_7t4vASOGDxG9ryTwf6FQI4N1m57EkM_hZQW0ByTRRoiKQNpS50dM0yFn9.8e1bikRWeJnbYlYYZ1uFZnuNaMd0zE1PG5iQsh0IJJv0ici1paDQ3xOTUvJP5F7Of2WVCP_ULti09xeFp4V3");
+                ck.Domain = "start.8.163.com";
+                cookies.Add(ck);
+
+                ck = new Cookie("mp_MA-9E66-C87EFACB60BC_hubble", "%7B%22sessionReferrer%22%3A%20%22https%3A%2F%2Fstar.8.163.com%2Fm%22%2C%22updatedTime%22%3A%201527868040006%2C%22sessionStartTime%22%3A%201527866967972%2C%22deviceUdid%22%3A%20%22f124f62b-3499-4cc1-b542-1f99567f2806%22%2C%22persistedTime%22%3A%201527858323703%2C%22LASTEVENT%22%3A%20%7B%22eventId%22%3A%20%22da_u_login%22%2C%22time%22%3A%201527868040007%7D%2C%22sessionUuid%22%3A%20%2286c12ada-b60b-4b07-b08f-dab9723b0257%22%2C%22user_id%22%3A%202043357%7D");
+                ck.Domain = "start.8.163.com";
+                cookies.Add(ck);
+
+                ck = new Cookie("_ga", "GA1.2.1416979330.1527858324");
+                ck.Domain = "start.8.163.com";
+                cookies.Add(ck);
+                
+                ck = new Cookie("_gat", "1");
+                ck.Domain = "start.8.163.com";
+                cookies.Add(ck);
+
+                ck = new Cookie("STAREIG", "c87fd834cabbc3a981ab93848f5d4eb5ac61360d");
+                ck.Domain = "start.8.163.com";
+                cookies.Add(ck);
+                HttpClientHandler handler = new HttpClientHandler();
+                handler.CookieContainer = cookies;
+
+                HttpClient client = new HttpClient(handler);
+
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, requestUrl);
+                requestMessage.Content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
+
+                var task = client.SendAsync(requestMessage);
+
+                await task.ContinueWith((requestTask) =>
+                {
+                    //requestTask.Result.Headers.GetValues("Set-Cookie")[1]
+                    //"JSESSIONID=F192D31D7A03DDC79C1D84064EF0783D; Path=/; HttpOnly"
+
+
+                    // Get HTTP response from completed task.
+                    if (requestTask.IsCompleted && requestTask.Status == TaskStatus.RanToCompletion)
+                    {
+                        //var header = requestTask.Result.Content.Headers.ToString();
+                        //var t1 = requestTask.Result.Headers.GetValues("Set-Cookie");
+                        responseBody = requestTask.Result.Content.ReadAsStringAsync().Result;
+                        Uri uri = new Uri(requestUrl);
+                        IEnumerable<Cookie> responseCookies = cookies.GetCookies(uri).Cast<Cookie>();
+                        foreach (Cookie cookie in responseCookies)
+                        {
+                            Console.WriteLine(cookie.Name + ": " + cookie.Value);
+                            if (cookie.Name == "JSESSIONID")
+                            {
+                                sessionid = cookie.Value;
+                                break;
+                            }
+                        }
+
+                    }
+
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.WriteLog(ex.ToString());
+            }
+
+            Log.WriteLog("Session Id: " + sessionid);
+            return sessionid;
+        }
+
+        private async void btnNXH_Click(object sender, EventArgs e)
+        {
+            var api_server = "http://47.105.106.146:9002";
+            string requestUrl = null;
+            string requestBody = null;
+            string result = null;
+            string token ="Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxODY4ODc3OTU4MCIsImF1ZGllbmNlIjoid2ViIiwiY3JlYXRlZCI6MTUyODYwNjIzOTA0OCwiZXhwIjoxNTI5MjExMDM5fQ.GXtDxgfqPwzRHd3BBkal-LgTJFOAFEmGYp1HBRSG5jEVwADjggHHZmOscbSrTl1gjo0fBQelMSvMGZ99nBz9aQ";
+            // 目前有6个酒桶
+            int barrelCount = 6;
+            // 1.get token
+            /*
+POST http://47.105.106.146:9002/jwtToken HTTP/1.1
+Host: 47.105.106.146:9002
+Connection: keep-alive
+Content-Length: 361
+Authorization: Bearer false, Basic YWRtaW46YWRtaW4=
+Origin: http://47.105.106.146
+User-Agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundarySYE5xREaoirUSdie
+Referer: http://47.105.106.146/
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.9
+
+------WebKitFormBoundarySYE5xREaoirUSdie
+Content-Disposition: form-data; name="username"
+
+18688779580
+------WebKitFormBoundarySYE5xREaoirUSdie
+Content-Disposition: form-data; name="password"
+
+Office.1net
+------WebKitFormBoundarySYE5xREaoirUSdie
+Content-Disposition: form-data; name="grant_type"
+
+password
+------WebKitFormBoundarySYE5xREaoirUSdie--
+             */
+            requestBody = @"
+------WebKitFormBoundarySYE5xREaoirUSdie
+Content-Disposition: form-data; name=""username""
+
+18688779580
+------WebKitFormBoundarySYE5xREaoirUSdie
+Content-Disposition: form-data; name=""password""
+
+Office.1net
+------WebKitFormBoundarySYE5xREaoirUSdie
+Content-Disposition: form-data; name=""grant_type""
+
+password
+------WebKitFormBoundarySYE5xREaoirUSdie--";
+            //requestUrl = string.Format("{0}{1}", api_server, "/jwtToken");
+            //token = await SendRequestMultiForm(requestUrl, requestBody, "------WebKitFormBoundarySYE5xREaoirUSdie");
+
+            //token = "Bearer " + token;
+            // 2. charge
+            // http://47.105.106.146:9002/v1/user/charge/2
+            // Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxODY4ODc3OTU4MCIsImF1ZGllbmNlIjoid2ViIiwiY3JlYXRlZCI6MTUyODYwNjIzOTA0OCwiZXhwIjoxNTI5MjExMDM5fQ.GXtDxgfqPwzRHd3BBkal-LgTJFOAFEmGYp1HBRSG5jEVwADjggHHZmOscbSrTl1gjo0fBQelMSvMGZ99nBz9aQ
+            // response:
+            // {"id":222,"username":"18688779580","password":"3cab93779736f48a707cfeb05ea2b8cc","type":1,"nickname":"Jackie","head":"1","nxh":4.202961,"gouqiPick":0,"gouqiTotal":76,"jiuping":9,"tong1Status":200,"tong1Timeout":1528614620226,"tong2Status":100,"tong2Timeout":0,"tong3Status":200,"tong3Timeout":1528626044844,"tong4Status":200,"tong4Timeout":1528614421647,"tong5Status":200,"tong5Timeout":1528626084754,"tong6Status":200,"tong6Timeout":1528626122077,"registeredat":1528260554422,"lastloginedat":1528606239044,"stircount":8,"stircoolingtime":1528637466661,"beginerNxh":0.202961,"basicNxh":0.659383,"inviteCode":"KQM"}
+            
+            // 目前有6个酒桶
+            for (int i = 1; i <= barrelCount; i++)
+            {
+                requestUrl = string.Format("{0}{1}{2}", api_server, "/v1/user/charge/", i);
+                // 不需要做其他的动作，只要访问下api 即可
+                result = await SendRequestM(HttpMethod.Get, requestUrl, null, token, "");
+            }
+
+            // 3. gather  -http://47.105.106.146:9002/v1/user/gather
+
+            requestUrl = string.Format("{0}{1}", api_server, "/v1/user/gather");
+            // 不需要做其他的动作，只要访问下api 即可
+            result = await SendRequestM(HttpMethod.Get, requestUrl, null, token, "");
+
+            // 4. brew --v1/user/brew/2
+
+            for (int i = 1; i <= barrelCount; i++)
+            {
+                requestUrl = string.Format("{0}{1}{2}", api_server, "/v1/user/brew/", i);
+                // 不需要做其他的动作，只要访问下api 即可
+                result = await SendRequestM(HttpMethod.Get, requestUrl, null, token, "");
+            }
+
+            this.txtResponse2.Text = "\n\r============" + DateTime.Now.ToString() + " Run Completed.================" + this.txtResponse2.Text;
+        }
+
+        private void timer5min_Tick(object sender, EventArgs e)
+        {
+            Log.WriteLog(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss fff") + "5 mins timer starts \r\n");
+            this.txtResponse2.Text = "\n\r============" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss fff") + "5 mins timer starts \r\n" + this.txtResponse2.Text;
+            btnNXH_Click(null, null);
         }
         
     }
