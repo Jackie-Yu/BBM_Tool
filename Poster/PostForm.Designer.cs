@@ -140,7 +140,7 @@
             this.txtAllHosts = new System.Windows.Forms.TextBox();
             this.btnHostSave = new System.Windows.Forms.Button();
             this.timer1 = new System.Windows.Forms.Timer(this.components);
-            this.timer5min = new System.Windows.Forms.Timer(this.components);
+            this.timer30min = new System.Windows.Forms.Timer(this.components);
             this.groupBox1.SuspendLayout();
             this.groupBox6.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).BeginInit();
@@ -561,7 +561,7 @@
             // 
             this.btnNXH.Location = new System.Drawing.Point(64, 312);
             this.btnNXH.Name = "btnNXH";
-            this.btnNXH.Size = new System.Drawing.Size(699, 47);
+            this.btnNXH.Size = new System.Drawing.Size(699, 72);
             this.btnNXH.TabIndex = 15;
             this.btnNXH.Text = "ningxiahong";
             this.btnNXH.UseVisualStyleBackColor = true;
@@ -1399,11 +1399,11 @@
             this.timer1.Interval = 36000000;
             this.timer1.Tick += new System.EventHandler(this.timer1_Tick);
             // 
-            // timer5min
+            // timer30min
             // 
-            this.timer5min.Enabled = true;
-            this.timer5min.Interval = 300000;
-            this.timer5min.Tick += new System.EventHandler(this.timer5min_Tick);
+            this.timer30min.Enabled = true;
+            this.timer30min.Interval = 1800000;
+            this.timer30min.Tick += new System.EventHandler(this.timer5min_Tick);
             // 
             // PostForm
             // 
@@ -1563,7 +1563,7 @@
         private System.Windows.Forms.Button btnTransfer;
         private System.Windows.Forms.Button btnNetease;
         private System.Windows.Forms.Button btnNXH;
-        private System.Windows.Forms.Timer timer5min;
+        private System.Windows.Forms.Timer timer30min;
     }
 }
 

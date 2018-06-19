@@ -12,6 +12,7 @@ namespace Achievo.Poster
         {
             public string UserName;
             public string Password;
+            public string Token;
         }
 
         public static List<BBMAccount> Accounts

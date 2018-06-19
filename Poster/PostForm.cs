@@ -24,6 +24,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
 using System.IO.Compression;
 using Newtonsoft.Json.Linq;
+using RestSharp;
 
 namespace Achievo.Poster
 {
@@ -36,6 +37,7 @@ namespace Achievo.Poster
         private static SharedHttpHeaderSettingEntity SHARED_HTTP_HEADER_SETTING = null;
         private static List<HostEntity> HOSTS = null;
         private DateTime LastExecuteTime = DateTime.Now;
+        
         public PostForm()
         {
             InitializeComponent();
@@ -1110,7 +1112,7 @@ RequestBody={2}
                     continue;
                 }
 
-                string token = await this.GetBBBHomeToken(userName, password);
+                string token = await this.GetBBBHomeToken2(userName, password);
 
                 // 2. Add brick
                 //var url = "https://wallet.bbb-home.com/app/game/addReadInformationBrick";
@@ -1287,12 +1289,66 @@ Accept-Language: en-US,en;q=0.8";
                         //this.txtResponse.Text=responseString;
 
                     }
+                    else
+                    {
+                        var error = "";
+                    }
 
                 });
 
                 token = await ParseBBBToken(responseString);
             }
             catch(Exception ex)
+            {
+                Log.WriteLog(ex.ToString());
+                this.txtResponse2.Text += ex.ToString();
+            }
+
+            Log.WriteLog("token: " + token);
+            this.txtResponse2.Text += "\r\n " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss fff") + "token: " + token;
+            return token;
+        }
+
+        private async Task<string> GetBBBHomeToken2(string userName, string password)
+        {
+            string token = "";
+            try
+            {
+                string msg = "userName:" + userName + " password:" + password;
+                Log.WriteLog(msg);
+                this.txtResponse2.Text += "\r\n" + msg;
+                //            POST https://wallet.bbb-home.com/login HTTP/1.1
+                //Host: wallet.bbb-home.com
+                //Connection: keep-alive
+                //Content-Length: 48
+                //Accept: application/json, text/javascript, */*; q=0.01
+                //Origin: http://game.bjex.vip
+                //User-Agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36
+                //Content-Type: application/json;charset=UTF-8
+                //Referer: http://game.bjex.vip/login.html
+                //Accept-Encoding: gzip, deflate, br
+                //Accept-Language: en-US,en;q=0.8
+
+                //{"username":"18566255573","password":"19501117"}
+
+                var client = new RestClient("https://wallet.bbb-home.com/login");
+                var request = new RestRequest(Method.POST);
+     
+                request.AddHeader("Cache-Control", "no-cache");
+                request.AddParameter("undefined", "{\"username\":\"" + userName + "\",\"password\":\""+ password+"\"}", ParameterType.RequestBody);
+                IRestResponse response = client.Execute(request);
+                foreach(var h in response.Headers)
+                {
+                    if(h.Name =="Authorization")
+                    {
+                        token = h.Value.ToString();
+                        break;
+                    }
+                }
+
+               // token = await ParseBBBToken(responseString);
+            }
+            catch (Exception ex)
             {
                 Log.WriteLog(ex.ToString());
                 this.txtResponse2.Text += ex.ToString();
@@ -1991,85 +2047,140 @@ Accept-Language: en-US,en;q=0.8";
         private async void btnNXH_Click(object sender, EventArgs e)
         {
             var api_server = "http://47.105.106.146:9002";
-            string requestUrl = null;
-            string requestBody = null;
-            string result = null;
-            string token ="Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxODY4ODc3OTU4MCIsImF1ZGllbmNlIjoid2ViIiwiY3JlYXRlZCI6MTUyODYwNjIzOTA0OCwiZXhwIjoxNTI5MjExMDM5fQ.GXtDxgfqPwzRHd3BBkal-LgTJFOAFEmGYp1HBRSG5jEVwADjggHHZmOscbSrTl1gjo0fBQelMSvMGZ99nBz9aQ";
-            // 目前有6个酒桶
-            int barrelCount = 6;
-            // 1.get token
-            /*
-POST http://47.105.106.146:9002/jwtToken HTTP/1.1
-Host: 47.105.106.146:9002
-Connection: keep-alive
-Content-Length: 361
-Authorization: Bearer false, Basic YWRtaW46YWRtaW4=
-Origin: http://47.105.106.146
-User-Agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36
-Content-Type: multipart/form-data; boundary=----WebKitFormBoundarySYE5xREaoirUSdie
-Referer: http://47.105.106.146/
-Accept-Encoding: gzip, deflate
-Accept-Language: en-US,en;q=0.9
-
-------WebKitFormBoundarySYE5xREaoirUSdie
-Content-Disposition: form-data; name="username"
-
-18688779580
-------WebKitFormBoundarySYE5xREaoirUSdie
-Content-Disposition: form-data; name="password"
-
-Office.1net
-------WebKitFormBoundarySYE5xREaoirUSdie
-Content-Disposition: form-data; name="grant_type"
-
-password
-------WebKitFormBoundarySYE5xREaoirUSdie--
-             */
-            requestBody = @"
-------WebKitFormBoundarySYE5xREaoirUSdie
-Content-Disposition: form-data; name=""username""
-
-18688779580
-------WebKitFormBoundarySYE5xREaoirUSdie
-Content-Disposition: form-data; name=""password""
-
-Office.1net
-------WebKitFormBoundarySYE5xREaoirUSdie
-Content-Disposition: form-data; name=""grant_type""
-
-password
-------WebKitFormBoundarySYE5xREaoirUSdie--";
-            //requestUrl = string.Format("{0}{1}", api_server, "/jwtToken");
-            //token = await SendRequestMultiForm(requestUrl, requestBody, "------WebKitFormBoundarySYE5xREaoirUSdie");
-
-            //token = "Bearer " + token;
-            // 2. charge
-            // http://47.105.106.146:9002/v1/user/charge/2
-            // Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxODY4ODc3OTU4MCIsImF1ZGllbmNlIjoid2ViIiwiY3JlYXRlZCI6MTUyODYwNjIzOTA0OCwiZXhwIjoxNTI5MjExMDM5fQ.GXtDxgfqPwzRHd3BBkal-LgTJFOAFEmGYp1HBRSG5jEVwADjggHHZmOscbSrTl1gjo0fBQelMSvMGZ99nBz9aQ
-            // response:
-            // {"id":222,"username":"18688779580","password":"3cab93779736f48a707cfeb05ea2b8cc","type":1,"nickname":"Jackie","head":"1","nxh":4.202961,"gouqiPick":0,"gouqiTotal":76,"jiuping":9,"tong1Status":200,"tong1Timeout":1528614620226,"tong2Status":100,"tong2Timeout":0,"tong3Status":200,"tong3Timeout":1528626044844,"tong4Status":200,"tong4Timeout":1528614421647,"tong5Status":200,"tong5Timeout":1528626084754,"tong6Status":200,"tong6Timeout":1528626122077,"registeredat":1528260554422,"lastloginedat":1528606239044,"stircount":8,"stircoolingtime":1528637466661,"beginerNxh":0.202961,"basicNxh":0.659383,"inviteCode":"KQM"}
-            
-            // 目前有6个酒桶
-            for (int i = 1; i <= barrelCount; i++)
+            int index = 0;
+            IList<BBMAccounts.BBMAccount> nxhAccounts = new List<BBMAccounts.BBMAccount>();
+            nxhAccounts.Add(new BBMAccounts.BBMAccount { UserName ="18688779580",Password="Office.1net"});
+            foreach(var account in BBMAccounts.Accounts)
             {
-                requestUrl = string.Format("{0}{1}{2}", api_server, "/v1/user/charge/", i);
-                // 不需要做其他的动作，只要访问下api 即可
-                result = await SendRequestM(HttpMethod.Get, requestUrl, null, token, "");
+                nxhAccounts.Add(account);
             }
 
-            // 3. gather  -http://47.105.106.146:9002/v1/user/gather
-
-            requestUrl = string.Format("{0}{1}", api_server, "/v1/user/gather");
-            // 不需要做其他的动作，只要访问下api 即可
-            result = await SendRequestM(HttpMethod.Get, requestUrl, null, token, "");
-
-            // 4. brew --v1/user/brew/2
-
-            for (int i = 1; i <= barrelCount; i++)
+            foreach (var account in nxhAccounts)
             {
-                requestUrl = string.Format("{0}{1}{2}", api_server, "/v1/user/brew/", i);
-                // 不需要做其他的动作，只要访问下api 即可
-                result = await SendRequestM(HttpMethod.Get, requestUrl, null, token, "");
+                index++;
+                JObject obj=null;
+                string requestUrl = null;
+                string requestBody = null;
+                string result = null;
+                string userName = account.UserName;
+                string password = account.Password;
+                string token = null;// "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxODY4ODc3OTU4MCIsImF1ZGllbmNlIjoid2ViIiwiY3JlYXRlZCI6MTUyODYwNjIzOTA0OCwiZXhwIjoxNTI5MjExMDM5fQ.GXtDxgfqPwzRHd3BBkal-LgTJFOAFEmGYp1HBRSG5jEVwADjggHHZmOscbSrTl1gjo0fBQelMSvMGZ99nBz9aQ";
+                // 目前有6个酒桶
+                int barrelCount = 6;
+                // 1.get token
+                /*
+    POST http://47.105.106.146:9002/jwtToken HTTP/1.1
+    Host: 47.105.106.146:9002
+    Connection: keep-alive
+    Content-Length: 361
+    Authorization: Bearer false, Basic YWRtaW46YWRtaW4=
+    Origin: http://47.105.106.146
+    User-Agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36
+    Content-Type: multipart/form-data; boundary=----WebKitFormBoundarySYE5xREaoirUSdie
+    Referer: http://47.105.106.146/
+    Accept-Encoding: gzip, deflate
+    Accept-Language: en-US,en;q=0.9
+
+    ------WebKitFormBoundarySYE5xREaoirUSdie
+    Content-Disposition: form-data; name="username"
+
+    18688779580
+    ------WebKitFormBoundarySYE5xREaoirUSdie
+    Content-Disposition: form-data; name="password"
+
+    Office.1net
+    ------WebKitFormBoundarySYE5xREaoirUSdie
+    Content-Disposition: form-data; name="grant_type"
+
+    password
+    ------WebKitFormBoundarySYE5xREaoirUSdie--
+                 */
+       
+                // 1.get token
+                // everyday renew a token 0:0 - 0：30
+                if(DateTime.Now.Hour < 1 && DateTime.Now.Minute <= 30 || String.IsNullOrWhiteSpace(account.Token))
+                {
+                    requestBody = "------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name=\"username\"\r\n\r\n" + userName + "\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name=\"password\"\r\n\r\n" + password + "\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name=\"grant_type\"\r\n\r\npassword\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW--";
+                    requestUrl = string.Format("{0}{1}", api_server, "/jwtToken");
+                    //token = await SendRequestMultiForm(requestUrl, requestBody, "------WebKitFormBoundarySYE5xREaoirUSdie");
+
+                    //token = "Bearer " + token;
+                    var client = new RestClient(requestUrl);
+                    var request = new RestRequest(Method.POST);
+                    request.AddHeader("content-type", "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW");
+                    request.AddParameter("multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW", requestBody, ParameterType.RequestBody);
+                    IRestResponse response = client.Execute(request);
+                    var responseContent = response.Content;
+
+                    Log.WriteLog(index + ". jwttoken api response for user " + userName + ":" + responseContent);
+
+                    if (string.IsNullOrWhiteSpace(responseContent))
+                    {
+                        continue;
+                    }
+                    obj = JObject.Parse(responseContent);
+
+                    this.txtResponse2.Text = "\n\r" + index + ".  " + DateTime.Now.ToString() + " User:" + userName + " response:" + responseContent + "\r\n" + this.txtResponse2.Text;
+
+                    if (obj["token"] == null)
+                    {
+                        continue;
+                    }
+
+                    token = "Bearer " + obj["token"];
+                    account.Token = token;
+                }
+
+                token = account.Token;
+                try
+                {
+                    // 1. gather  -http://47.105.106.146:9002/v1/user/gather
+
+                    requestUrl = string.Format("{0}{1}", api_server, "/v1/user/gather");
+                    // 不需要做其他的动作，只要访问下api 即可
+                    result = await SendRequestM(HttpMethod.Get, requestUrl, null, token, "");
+
+                    // 如果没有gouqi，不需要继续
+                    obj = JObject.Parse(result);
+                    int gouqiTotal = Convert.ToInt32(obj["gouqiTotal"]);
+                    if(gouqiTotal < 1)
+                    {
+                        continue;
+                    }
+                    // 2. charge
+                    // http://47.105.106.146:9002/v1/user/charge/2
+                    // Authorization: Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxODY4ODc3OTU4MCIsImF1ZGllbmNlIjoid2ViIiwiY3JlYXRlZCI6MTUyODYwNjIzOTA0OCwiZXhwIjoxNTI5MjExMDM5fQ.GXtDxgfqPwzRHd3BBkal-LgTJFOAFEmGYp1HBRSG5jEVwADjggHHZmOscbSrTl1gjo0fBQelMSvMGZ99nBz9aQ
+                    // response:
+                    // {"id":222,"username":"18688779580","password":"3cab93779736f48a707cfeb05ea2b8cc","type":1,"nickname":"Jackie","head":"1","nxh":4.202961,"gouqiPick":0,"gouqiTotal":76,"jiuping":9,"tong1Status":200,"tong1Timeout":1528614620226,"tong2Status":100,"tong2Timeout":0,"tong3Status":200,"tong3Timeout":1528626044844,"tong4Status":200,"tong4Timeout":1528614421647,"tong5Status":200,"tong5Timeout":1528626084754,"tong6Status":200,"tong6Timeout":1528626122077,"registeredat":1528260554422,"lastloginedat":1528606239044,"stircount":8,"stircoolingtime":1528637466661,"beginerNxh":0.202961,"basicNxh":0.659383,"inviteCode":"KQM"}
+
+                    //2 charge 目前有6个酒桶
+                    for (int i = 1; i <= barrelCount; i++)
+                    {
+                        requestUrl = string.Format("{0}{1}{2}", api_server, "/v1/user/charge/", i);
+                        // 不需要做其他的动作，只要访问下api 即可
+                        result = await SendRequestM(HttpMethod.Get, requestUrl, null, token, "");
+                    }
+
+                    // 3. brew --v1/user/brew/1
+
+                    for (int i = 1; i <= barrelCount; i++)
+                    {
+                        requestUrl = string.Format("{0}{1}{2}", api_server, "/v1/user/brew/", i);
+                        // 不需要做其他的动作，只要访问下api 即可
+                        result = await SendRequestM(HttpMethod.Get, requestUrl, null, token, "");
+                    }
+
+                    //4. stir - http://47.105.106.146:9002/v1/user/stir
+                    requestUrl = string.Format("{0}{1}", api_server, "/v1/user/stir");
+                    result = await SendRequestM(HttpMethod.Get, requestUrl, null, token, "");
+
+
+
+                }
+                catch (Exception ex)
+                {
+                    this.txtResponse2.Text = "\n\r" + DateTime.Now.ToString() + " Error:" + ex.ToString() + "\n\r" + this.txtResponse2.Text;
+                }
             }
 
             this.txtResponse2.Text = "\n\r============" + DateTime.Now.ToString() + " Run Completed.================" + this.txtResponse2.Text;
@@ -2078,7 +2189,7 @@ password
         private void timer5min_Tick(object sender, EventArgs e)
         {
             Log.WriteLog(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss fff") + "5 mins timer starts \r\n");
-            this.txtResponse2.Text = "\n\r============" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss fff") + "5 mins timer starts \r\n" + this.txtResponse2.Text;
+            this.txtResponse2.Text = "\r\n============" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss fff") + "5 mins timer starts \r\n" + this.txtResponse2.Text;
             btnNXH_Click(null, null);
         }
         
